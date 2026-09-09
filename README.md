@@ -23,7 +23,7 @@ CombatLibrary/
 Depois de hospedar, o padrão de carregamento pode usar o link raw do arquivo:
 
 ```lua
-loadstring(game:HttpGet("(http://raw.githubusercontent.com/leonardokyoshida013-creator/Script/refs/heads/main/Teste_do_script_do_bola.lua)", true))()
+loadstring(game:HttpGet("https://raw.githubusercontent.com/leonardokyoshida013-creator/Script/refs/heads/main/Teste_do_script_do_bola.lua"))()
 ```
 
 Substitua apenas pelo link raw gerado pelo seu próprio repositório.
