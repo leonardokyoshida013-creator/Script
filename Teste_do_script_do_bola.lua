@@ -507,7 +507,7 @@ local Info = Instance.new("TextLabel")
 Info.Size = UDim2.new(1, -8, 1, -10)
 Info.Position = UDim2.fromOffset(4, 6)
 Info.BackgroundTransparency = 1
-Info.Text = "TIRO AUTOMÁTICO\n\n• Ative Auto Shoot\n• Ajuste a barra de Fire Rate\n• Só atira se estiver visível (sem paredes)\n\nBotão verde = alvo visível\nBotão vermelho = sem alvo / parede\n\nPressione 'J' para ocultar/exibir o painel."
+Info.Text = "TIRO AUTOMÁTICO\n\n• Ative Auto Shoot\n• Ajuste a barra de Fire Rate\n• Só atira se estiver visível (sem paredes)\n• Ignora aliados e a si mesmo\n\nBotão verde = alvo visível\nBotão vermelho = sem alvo / parede\n\nPressione 'J' para ocultar/exibir o painel."
 Info.TextColor3 = Color3.new(1,1,1)
 Info.TextSize = 13
 Info.Font = Enum.Font.Gotham
@@ -576,7 +576,7 @@ FOVStroke.Color = Color3.new(1,1,1)
 FOVStroke.Parent = FOV
 
 --========================================================--
--- GET CLOSEST (COM VERIFICAÇÃO DE VISIBILIDADE)
+-- GET CLOSEST (COM FILTRAGEM RIGOROSA DE INIMIGOS E AUTOPRESERVAÇÃO)
 --========================================================--
 
 local function GetClosest()
@@ -585,20 +585,23 @@ local function GetClosest()
 	local center = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
 
 	for _, plr in ipairs(Players:GetPlayers()) do
-		if plr ~= LP and IsEnemy(plr) and plr.Character then
-			local hum = plr.Character:FindFirstChildOfClass("Humanoid")
-			local part = plr.Character:FindFirstChild(Settings.AimPart)
-			local root = plr.Character:FindFirstChild("HumanoidRootPart")
+		-- Garante que não é o jogador local, que é um inimigo real e que tem um personagem válido
+		if plr ~= LP and plr.Character and LP.Character and plr.Character ~= LP.Character then
+			if IsEnemy(plr) then
+				local hum = plr.Character:FindFirstChildOfClass("Humanoid")
+				local part = plr.Character:FindFirstChild(Settings.AimPart)
+				local root = plr.Character:FindFirstChild("HumanoidRootPart")
 
-			if hum and part and root and hum.Health > 0 then
-				local dist = (Camera.CFrame.Position - root.Position).Magnitude
-				if dist <= Settings.MaxDistance then
-					local pos, onScreen = Camera:WorldToViewportPoint(part.Position)
-					if onScreen and pos.Z > 0 and IsVisible(part) then
-						local screenDist = (Vector2.new(pos.X, pos.Y) - center).Magnitude
-						if screenDist < shortest then
-							shortest = screenDist
-							closest = part
+				if hum and part and root and hum.Health > 0 then
+					local dist = (Camera.CFrame.Position - root.Position).Magnitude
+					if dist <= Settings.MaxDistance then
+						local pos, onScreen = Camera:WorldToViewportPoint(part.Position)
+						if onScreen and pos.Z > 0 and IsVisible(part) then
+							local screenDist = (Vector2.new(pos.X, pos.Y) - center).Magnitude
+							if screenDist < shortest then
+								shortest = screenDist
+								closest = part
+							end
 						end
 					end
 				end
@@ -636,7 +639,7 @@ RunService.RenderStepped:Connect(function()
 			local lookAt = CFrame.lookAt(Camera.CFrame.Position, target.Position)
 			Camera.CFrame = Camera.CFrame:Lerp(lookAt, smoothness)
 
-			-- TIRO AUTOMÁTICO (Só atira se tiver alvo válido E visível sem paredes)
+			-- TIRO AUTOMÁTICO
 			if Settings.AutoShoot and IsVisible(target) then
 				local now = tick()
 				if now - LastShot >= Settings.FireRate then
@@ -720,4 +723,4 @@ UserInputService.InputChanged:Connect(function(input)
 	end
 end)
 
-print("[Combat Library] Raycast de visibilidade adicionado com sucesso!")
+print("[Combat Library] Filtros de time e auto-preservação aplicados!")
