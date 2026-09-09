@@ -1,12 +1,11 @@
 --[[
-    Combat Library - Versão Otimizada
+    Combat Library - Versão Final Otimizada
     Interface de combate para Roblox
 ]]
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
-local VirtualInputManager = game:GetService("VirtualInputManager")
 
 local LP = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
@@ -20,7 +19,6 @@ local Settings = {
 	Aimbot = false,
 	ESP = true,
 	ShowTeammates = false,
-	AutoShoot = false,
 	FOV = 160,
 	MaxDistance = 600,
 	Smoothness = 0.25,
@@ -29,8 +27,6 @@ local Settings = {
 }
 
 local CurrentTarget = nil
-local LastShot = 0
-local DetectedFireRate = 0.15 -- Valor padrão caso a arma não informe
 
 --========================================================--
 -- DETECÇÃO DE TIME
@@ -76,64 +72,6 @@ local function IsVisible(targetPart)
 end
 
 --========================================================--
--- DETECÇÃO INTELIGENTE DO FIRERATE DA ARMA
---========================================================--
-
-local function UpdateWeaponFireRate()
-	local character = LP.Character
-	if not character then return end
-
-	local tool = character:FindFirstChildOfClass("Tool")
-	if tool then
-		-- Tenta ler propriedades comuns de cadência de tiro em scripts de armas do Roblox
-		local cooldownVal = tool:FindFirstChild("Cooldown") or tool:FindFirstChild("FireRate") or tool:FindFirstChild("Delay")
-		if cooldownVal and (cooldownVal:IsA("NumberValue") or cooldownVal:IsA("IntValue")) then
-			DetectedFireRate = math.clamp(cooldownVal.Value, 0.05, 2.0)
-			return
-		end
-		
-		-- Verifica atributos da ferramenta se houver
-		if tool:GetAttribute("FireRate") then
-			DetectedFireRate = math.clamp(tool:GetAttribute("FireRate"), 0.05, 2.0)
-			return
-		end
-	end
-	
-	-- Padrão seguro caso não encontre atributos customizados
-	DetectedFireRate = 0.15
-end
-
---========================================================--
--- FUNÇÃO DE ATIRAR
---========================================================--
-
-local function Shoot()
-	local character = LP.Character
-	if not character then return end
-
-	UpdateWeaponFireRate()
-
-	local tool = character:FindFirstChildOfClass("Tool")
-	if tool then
-		tool:Activate()
-		for _, child in ipairs(tool:GetChildren()) do
-			if child:IsA("RemoteEvent") then
-				pcall(function()
-					child:FireServer()
-				end)
-			end
-		end
-	end
-
-	pcall(function()
-		local vim = VirtualInputManager
-		vim:SendMouseButtonEvent(0, 0, 0, true, game, 1)
-		task.wait(0.01)
-		vim:SendMouseButtonEvent(0, 0, 0, false, game, 1)
-	end)
-end
-
---========================================================--
 -- GUI PRINCIPAL
 --========================================================--
 
@@ -146,8 +84,8 @@ GUI.DisplayOrder = 999999
 GUI.Parent = LP:WaitForChild("PlayerGui")
 
 local Main = Instance.new("Frame")
-Main.Size = UDim2.fromOffset(350, 380) -- Altura ajustada sem o slider
-Main.Position = UDim2.new(0.5, -175, 0.5, -190)
+Main.Size = UDim2.fromOffset(350, 330)
+Main.Position = UDim2.new(0.5, -175, 0.5, -165)
 Main.BackgroundColor3 = Color3.fromRGB(22, 22, 26)
 Main.BorderSizePixel = 0
 Main.Active = true
@@ -179,7 +117,7 @@ Title.Font = Enum.Font.GothamBold
 Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.Parent = TitleBar
 
--- Botão Minimizar (Apenas oculta o painel principal, sem criar bolinha "CL")
+-- Botão Minimizar
 local MinimizeBtn = Instance.new("TextButton")
 MinimizeBtn.Size = UDim2.fromOffset(34, 34)
 MinimizeBtn.Position = UDim2.new(1, -78, 0, 6)
@@ -192,7 +130,7 @@ MinimizeBtn.Parent = TitleBar
 
 Instance.new("UICorner", MinimizeBtn).CornerRadius = UDim.new(0, 8)
 
--- Botão Fechar (Destrói a interface por completo de vez)
+-- Botão Fechar
 local CloseBtn = Instance.new("TextButton")
 CloseBtn.Size = UDim2.fromOffset(34, 34)
 CloseBtn.Position = UDim2.new(1, -38, 0, 6)
@@ -205,60 +143,38 @@ CloseBtn.Parent = TitleBar
 
 Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 8)
 
-local ShootBtn
-
 --========================================================--
--- BOTÃO DE ATIRAR MANUAL NA TELA
+-- FUNÇÃO PARA DESATIVAR TUDO E FECHAR
 --========================================================--
 
-ShootBtn = Instance.new("TextButton")
-ShootBtn.Name = "ShootButton"
-ShootBtn.Size = UDim2.fromOffset(90, 90)
-ShootBtn.Position = UDim2.new(1, -110, 1, -140)
-ShootBtn.BackgroundColor3 = Color3.fromRGB(200, 40, 40)
-ShootBtn.Text = "ATIRAR"
-ShootBtn.TextColor3 = Color3.new(1,1,1)
-ShootBtn.TextSize = 16
-ShootBtn.Font = Enum.Font.GothamBold
-ShootBtn.Parent = GUI
+local function ShutdownScript()
+	Settings.AimAssist = false
+	Settings.Aimbot = false
+	Settings.ESP = false
+	Settings.ShowTeammates = false
 
-Instance.new("UICorner", ShootBtn).CornerRadius = UDim.new(1, 0)
-local ShootStroke = Instance.new("UIStroke")
-ShootStroke.Color = Color3.fromRGB(255, 80, 80)
-ShootStroke.Thickness = 3
-ShootStroke.Parent = ShootBtn
-
-local function UpdateShootButton()
-	if CurrentTarget and IsVisible(CurrentTarget) then
-		ShootBtn.BackgroundColor3 = Color3.fromRGB(0, 180, 60)
-		ShootStroke.Color = Color3.fromRGB(80, 255, 100)
-	else
-		ShootBtn.BackgroundColor3 = Color3.fromRGB(200, 40, 40)
-		ShootStroke.Color = Color3.fromRGB(255, 80, 80)
+	-- Remove todos os Highlights de ESP existentes nos jogadores
+	for _, plr in ipairs(Players:GetPlayers()) do
+		if plr.Character then
+			local h = plr.Character:FindFirstChild("CombatESP")
+			if h then h:Destroy() end
+		end
 	end
+
+	GUI:Destroy()
 end
 
-ShootBtn.MouseButton1Click:Connect(function()
-	if CurrentTarget and IsVisible(CurrentTarget) then
-		Shoot()
-	end
-end)
+CloseBtn.MouseButton1Click:Connect(ShutdownScript)
 
 --========================================================--
--- CONTROLE DE VISIBILIDADE (TECLA J / BOTÕES)
+-- CONTROLE DE VISIBILIDADE (ABRIR/MINIMIZAR)
 --========================================================--
 
 local function ToggleUI()
-	local currentVisibility = Main.Visible
-	Main.Visible = not currentVisibility
-	ShootBtn.Visible = not currentVisibility
+	Main.Visible = not Main.Visible
 end
 
 MinimizeBtn.MouseButton1Click:Connect(ToggleUI)
-
-CloseBtn.MouseButton1Click:Connect(function()
-	GUI:Destroy()
-end)
 
 --========================================================--
 -- ABAS
@@ -355,12 +271,11 @@ end
 
 MakeToggle(CombatPage, "Aim Assist", 4, false, function(v) Settings.AimAssist = v end)
 MakeToggle(CombatPage, "Aimbot", 48, false, function(v) Settings.Aimbot = v end)
-MakeToggle(CombatPage, "Auto Shoot", 92, false, function(v) Settings.AutoShoot = v end)
 
 -- FOV Button
 local FOVBtn = Instance.new("TextButton")
 FOVBtn.Size = UDim2.new(1, -8, 0, 36)
-FOVBtn.Position = UDim2.fromOffset(4, 140)
+FOVBtn.Position = UDim2.fromOffset(4, 96)
 FOVBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 42)
 FOVBtn.Text = "FOV: 160"
 FOVBtn.TextColor3 = Color3.new(1,1,1)
@@ -426,7 +341,7 @@ local Info = Instance.new("TextLabel")
 Info.Size = UDim2.new(1, -8, 1, -10)
 Info.Position = UDim2.fromOffset(4, 6)
 Info.BackgroundTransparency = 1
-Info.Text = "TIRO AUTOMÁTICO INTELIGENTE\n\n• Detecta o tempo de espera da arma automaticamente.\n• Ative Auto Shoot dentro do FOV.\n• Exige visão limpa (sem paredes).\n\nPressione 'J' para ocultar/exibir o painel."
+Info.Text = "COMBAT LIBRARY\n\n• Aim Assist / Aimbot ativos.\n• ESP persistente configurado.\n\nPressione 'J' para ocultar/exibir o painel."
 Info.TextColor3 = Color3.new(1,1,1)
 Info.TextSize = 13
 Info.Font = Enum.Font.Gotham
@@ -443,7 +358,7 @@ local function SetupESP(plr)
 
 	local function applyHighlight(char)
 		task.wait(0.4)
-		if not char or not char.Parent then return end
+		if not char or not char.Parent or not Settings.ESP then return end
 
 		local old = char:FindFirstChild("CombatESP")
 		if old then old:Destroy() end
@@ -546,7 +461,7 @@ end
 RunService.RenderStepped:Connect(function()
 	local size = Settings.FOV * 2
 	FOV.Size = UDim2.fromOffset(size, size)
-	FOV.Visible = (Settings.AimAssist or Settings.Aimbot or Settings.AutoShoot)
+	FOV.Visible = (Settings.AimAssist or Settings.Aimbot)
 
 	local target = GetClosest()
 	CurrentTarget = target
@@ -566,21 +481,10 @@ RunService.RenderStepped:Connect(function()
 		local lookAt = CFrame.lookAt(Camera.CFrame.Position, target.Position)
 		Camera.CFrame = Camera.CFrame:Lerp(lookAt, smoothness)
 	end
-
-	-- Auto Shoot com base no tempo detectado da arma
-	if Settings.AutoShoot and target and IsVisible(target) then
-		local now = tick()
-		if now - LastShot >= DetectedFireRate then
-			LastShot = now
-			Shoot()
-		end
-	end
-
-	UpdateShootButton()
 end)
 
 --========================================================--
--- TECLA DE ATALHO (J)
+-- TECLA DE ATALHO (J) - ABRE E MINIMIZA CORRETAMENTE
 --========================================================--
 
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
@@ -617,4 +521,4 @@ UserInputService.InputChanged:Connect(function(input)
 	end
 end)
 
-print("[Combat Library] Sistema atualizado com sucesso!")
+print("[Combat Library] Atualizado com sucesso!")
