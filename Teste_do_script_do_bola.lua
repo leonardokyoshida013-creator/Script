@@ -1,5 +1,5 @@
 --[[
-    Combat Library - Corrigido Layout dos Keybinds
+    Combat Library - Keybinds e ESP Corrigidos
 ]]
 
 local Players = game:GetService("Players")
@@ -212,7 +212,10 @@ CombatTab.MouseButton1Click:Connect(function() ShowPage(CombatPage) end)
 ESPTab.MouseButton1Click:Connect(function() ShowPage(ESPPage) end)
 SettingsTab.MouseButton1Click:Connect(function() ShowPage(SettingsPage) end)
 
--- Sistema de Toggle com Keybind integrado e corrigido
+-- Forward declaration das funções de refresh globais
+local RefreshESP
+
+-- Sistema Seguro de Toggle com Keybind
 local function MakeToggleWithKeybind(parent, text, y, defaultVal, defaultKey, callback, keyName)
 	local btn = Instance.new("TextButton")
 	btn.Size = UDim2.new(1, -55, 0, 36)
@@ -354,19 +357,28 @@ UserInputService.InputEnded:Connect(function(input)
 	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then slidingAimDist = false end
 end)
 
--- Abas ESP
-MakeToggleWithKeybind(ESPPage, "ESP", 4, true, Enum.KeyCode.X, function(v)
-	Settings.ESP = v
+-- Função Global do ESP
+RefreshESP = function()
 	for _, plr in ipairs(Players:GetPlayers()) do
 		if plr.Character then
 			local h = plr.Character:FindFirstChild("CombatESP")
 			if h then
-				if IsEnemy(plr) then h.Enabled = v
-				elseif IsTeammate(plr) then h.Enabled = v and Settings.ShowTeammates
-				else h.Enabled = false end
+				if IsEnemy(plr) then
+					h.Enabled = Settings.ESP
+				elseif IsTeammate(plr) then
+					h.Enabled = Settings.ESP and Settings.ShowTeammates
+				else
+					h.Enabled = false
+				end
 			end
 		end
 	end
+end
+
+-- Abas ESP
+MakeToggleWithKeybind(ESPPage, "ESP", 4, true, Enum.KeyCode.X, function(v)
+	Settings.ESP = v
+	RefreshESP()
 end, "ESPKey")
 
 local TeamToggleBtn = Instance.new("TextButton")
@@ -390,12 +402,7 @@ TeamToggleBtn.MouseButton1Click:Connect(function()
 	showTeamVal = not showTeamVal
 	Settings.ShowTeammates = showTeamVal
 	updateTeamBtn()
-	for _, plr in ipairs(Players:GetPlayers()) do
-		if plr.Character and IsTeammate(plr) then
-			local h = plr.Character:FindFirstChild("CombatESP")
-			if h then h.Enabled = Settings.ESP and showTeamVal end
-		end
-	end
+	RefreshESP()
 end)
 
 local DistBtn = Instance.new("TextButton")
@@ -420,7 +427,7 @@ local Info = Instance.new("TextLabel")
 Info.Size = UDim2.new(1, -8, 1, -10)
 Info.Position = UDim2.fromOffset(4, 6)
 Info.BackgroundTransparency = 1
-Info.Text = "COMBAT LIBRARY\n\n• Botões de keybind ajustados.\n• Clique neles para alterar a tecla.\n\nPressione 'J' para ocultar/exibir."
+Info.Text = "COMBAT LIBRARY\n\n• Keybinds corrigidas com sucesso.\n• Pressione 'J' para ocultar/exibir."
 Info.TextColor3 = Color3.new(1,1,1)
 Info.TextSize = 13
 Info.Font = Enum.Font.Gotham
@@ -433,7 +440,7 @@ local function SetupESP(plr)
 	if plr == LP then return end
 	local function applyHighlight(char)
 		task.wait(0.4)
-		if not char or not char.Parent or not Settings.ESP then return end
+		if not char or not char.Parent then return end
 		local old = char:FindFirstChild("CombatESP")
 		if old then old:Destroy() end
 
@@ -566,4 +573,4 @@ UserInputService.InputChanged:Connect(function(input)
 	end
 end)
 
-print("[Combat Library] Interface ajustada e keybinds visíveis!")
+print("[Combat Library] Keybinds e ESP estabilizados com sucesso!")
