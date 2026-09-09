@@ -1,5 +1,5 @@
 --[[
-    Combat Library - Versão Final Otimizada
+    Combat Library - Com Slider de Distância do Aimbot
     Interface de combate para Roblox
 ]]
 
@@ -20,7 +20,8 @@ local Settings = {
 	ESP = true,
 	ShowTeammates = false,
 	FOV = 160,
-	MaxDistance = 600,
+	MaxDistance = 600,       -- Distância para o ESP
+	AimbotDistance = 100,    -- Distância inicial do Aimbot (10 - 200 metros)
 	Smoothness = 0.25,
 	AimbotSmoothness = 0.55,
 	AimPart = "Head"
@@ -84,8 +85,8 @@ GUI.DisplayOrder = 999999
 GUI.Parent = LP:WaitForChild("PlayerGui")
 
 local Main = Instance.new("Frame")
-Main.Size = UDim2.fromOffset(350, 330)
-Main.Position = UDim2.new(0.5, -175, 0.5, -165)
+Main.Size = UDim2.fromOffset(350, 400) -- Altura aumentada para caber o slider
+Main.Position = UDim2.new(0.5, -175, 0.5, -200)
 Main.BackgroundColor3 = Color3.fromRGB(22, 22, 26)
 Main.BorderSizePixel = 0
 Main.Active = true
@@ -153,7 +154,6 @@ local function ShutdownScript()
 	Settings.ESP = false
 	Settings.ShowTeammates = false
 
-	-- Remove todos os Highlights de ESP existentes nos jogadores
 	for _, plr in ipairs(Players:GetPlayers()) do
 		if plr.Character then
 			local h = plr.Character:FindFirstChild("CombatESP")
@@ -290,7 +290,86 @@ FOVBtn.MouseButton1Click:Connect(function()
 	FOVBtn.Text = "FOV: " .. Settings.FOV
 end)
 
--- ESP Page
+--========================================================--
+-- SLIDER DE DISTÂNCIA DO AIMBOT (10 - 200m)
+--========================================================--
+
+local AimDistLabel = Instance.new("TextLabel")
+AimDistLabel.Size = UDim2.new(1, -8, 0, 20)
+AimDistLabel.Position = UDim2.fromOffset(4, 138)
+AimDistLabel.BackgroundTransparency = 1
+AimDistLabel.Text = "Aimbot Max Dist: 100m"
+AimDistLabel.TextColor3 = Color3.new(1,1,1)
+AimDistLabel.TextSize = 13
+AimDistLabel.Font = Enum.Font.Gotham
+AimDistLabel.TextXAlignment = Enum.TextXAlignment.Left
+AimDistLabel.Parent = CombatPage
+
+local AimDistBg = Instance.new("Frame")
+AimDistBg.Size = UDim2.new(1, -8, 0, 16)
+AimDistBg.Position = UDim2.fromOffset(4, 162)
+AimDistBg.BackgroundColor3 = Color3.fromRGB(40, 40, 48)
+AimDistBg.BorderSizePixel = 0
+AimDistBg.Parent = CombatPage
+Instance.new("UICorner", AimDistBg).CornerRadius = UDim.new(0, 8)
+
+local AimDistFill = Instance.new("Frame")
+-- Valor inicial correspondente a 100m numa faixa de 10 a 200 (100-10)/(200-10) ≈ 0.473
+AimDistFill.Size = UDim2.new((100 - 10) / 190, 0, 1, 0)
+AimDistFill.BackgroundColor3 = Color3.fromRGB(0, 170, 80)
+AimDistFill.BorderSizePixel = 0
+AimDistFill.Parent = AimDistBg
+Instance.new("UICorner", AimDistFill).CornerRadius = UDim.new(0, 8)
+
+local AimDistBtn = Instance.new("TextButton")
+AimDistBtn.Size = UDim2.new(0, 20, 0, 20)
+AimDistBtn.Position = UDim2.new(AimDistFill.Size.X.Scale, -10, 0.5, -10)
+AimDistBtn.BackgroundColor3 = Color3.new(1,1,1)
+AimDistBtn.Text = ""
+AimDistBtn.Parent = AimDistBg
+Instance.new("UICorner", AimDistBtn).CornerRadius = UDim.new(1, 0)
+
+local slidingAimDist = false
+
+local function UpdateAimDistSlider(inputPos)
+	local relative = math.clamp((inputPos.X - AimDistBg.AbsolutePosition.X) / AimDistBg.AbsoluteSize.X, 0, 1)
+	AimDistFill.Size = UDim2.new(relative, 0, 1, 0)
+	AimDistBtn.Position = UDim2.new(relative, -10, 0.5, -10)
+
+	-- Mapeia de 10 até 200 metros
+	Settings.AimbotDistance = math.floor(10 + relative * 190)
+	AimDistLabel.Text = "Aimbot Max Dist: " .. Settings.AimbotDistance .. "m"
+end
+
+AimDistBtn.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		slidingAimDist = true
+	end
+end)
+
+AimDistBg.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		slidingAimDist = true
+		UpdateAimDistSlider(input.Position)
+	end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+	if slidingAimDist and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+		UpdateAimDistSlider(input.Position)
+	end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		slidingAimDist = false
+	end
+end)
+
+--========================================================--
+-- ESP PAGE
+--========================================================--
+
 MakeToggle(ESPPage, "ESP", 4, true, function(v)
 	Settings.ESP = v
 	for _, plr in ipairs(Players:GetPlayers()) do
@@ -341,7 +420,7 @@ local Info = Instance.new("TextLabel")
 Info.Size = UDim2.new(1, -8, 1, -10)
 Info.Position = UDim2.fromOffset(4, 6)
 Info.BackgroundTransparency = 1
-Info.Text = "COMBAT LIBRARY\n\n• Aim Assist / Aimbot ativos.\n• ESP persistente configurado.\n\nPressione 'J' para ocultar/exibir o painel."
+Info.Text = "COMBAT LIBRARY\n\n• Aim Assist / Aimbot com distância ajustável.\n• ESP persistente configurado.\n\nPressione 'J' para ocultar/exibir o painel."
 Info.TextColor3 = Color3.new(1,1,1)
 Info.TextSize = 13
 Info.Font = Enum.Font.Gotham
@@ -420,7 +499,7 @@ FOVStroke.Color = Color3.new(1,1,1)
 FOVStroke.Parent = FOV
 
 --========================================================--
--- GET CLOSEST TARGET
+-- GET CLOSEST TARGET (USANDO A DISTÂNCIA DO AIMBOT)
 --========================================================--
 
 local function GetClosest()
@@ -437,7 +516,8 @@ local function GetClosest()
 
 				if hum and part and root and hum.Health > 0 then
 					local dist = (Camera.CFrame.Position - root.Position).Magnitude
-					if dist <= Settings.MaxDistance then
+					-- Respeita o limite do slider (Settings.AimbotDistance)
+					if dist <= Settings.AimbotDistance then
 						local pos, onScreen = Camera:WorldToViewportPoint(part.Position)
 						if onScreen and pos.Z > 0 and IsVisible(part) then
 							local screenDist = (Vector2.new(pos.X, pos.Y) - center).Magnitude
@@ -521,4 +601,4 @@ UserInputService.InputChanged:Connect(function(input)
 	end
 end)
 
-print("[Combat Library] Atualizado com sucesso!")
+print("[Combat Library] Slider de distância do Aimbot adicionado com sucesso!")
