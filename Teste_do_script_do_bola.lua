@@ -1,5 +1,5 @@
 --[[
-    Combat Library - Keybinds e ESP Corrigidos
+    Combat Library - Painel, Tecla J e ESP Corrigidos
 ]]
 
 local Players = game:GetService("Players")
@@ -212,7 +212,7 @@ CombatTab.MouseButton1Click:Connect(function() ShowPage(CombatPage) end)
 ESPTab.MouseButton1Click:Connect(function() ShowPage(ESPPage) end)
 SettingsTab.MouseButton1Click:Connect(function() ShowPage(SettingsPage) end)
 
--- Forward declaration das funções de refresh globais
+-- Forward declaration da função de refresh do ESP
 local RefreshESP
 
 -- Sistema Seguro de Toggle com Keybind
@@ -427,7 +427,7 @@ local Info = Instance.new("TextLabel")
 Info.Size = UDim2.new(1, -8, 1, -10)
 Info.Position = UDim2.fromOffset(4, 6)
 Info.BackgroundTransparency = 1
-Info.Text = "COMBAT LIBRARY\n\n• Keybinds corrigidas com sucesso.\n• Pressione 'J' para ocultar/exibir."
+Info.Text = "COMBAT LIBRARY\n\n• Aperte 'J' para ocultar/exibir a UI.\n• O ESP continua ativo ao esconder a UI.\n• Use o botão 'X' (vermelho) para fechar tudo."
 Info.TextColor3 = Color3.new(1,1,1)
 Info.TextSize = 13
 Info.Font = Enum.Font.Gotham
@@ -543,8 +543,9 @@ RunService.RenderStepped:Connect(function()
 	end
 end)
 
+-- Tecla J para abrir/fechar a UI de forma segura
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
-	if not gameProcessed and input.KeyCode == Enum.KeyCode.J then
+	if not gameProcessed and input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode == Enum.KeyCode.J then
 		ToggleUI()
 	end
 end)
@@ -573,4 +574,4 @@ UserInputService.InputChanged:Connect(function(input)
 	end
 end)
 
-print("[Combat Library] Keybinds e ESP estabilizados com sucesso!")
+print("[Combat Library] UI, tecla J e ESP configurados perfeitamente!")
