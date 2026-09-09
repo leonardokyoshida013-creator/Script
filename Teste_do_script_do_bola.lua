@@ -1,5 +1,5 @@
 --[[
-    Combat Library - Com Slider de Distância do Aimbot
+    Combat Library - Com Keybinds para Aim Assist, Aimbot e ESP
     Interface de combate para Roblox
 ]]
 
@@ -16,8 +16,14 @@ end)
 
 local Settings = {
 	AimAssist = false,
+	AimAssistKey = Enum.KeyCode.E, -- Tecla padrão para Aim Assist
+	
 	Aimbot = false,
+	AimbotKey = Enum.KeyCode.Q,    -- Tecla padrão para Aimbot
+	
 	ESP = true,
+	ESPKey = Enum.KeyCode.X,       -- Tecla padrão para ESP
+	
 	ShowTeammates = false,
 	FOV = 160,
 	MaxDistance = 600,       -- Distância para o ESP
@@ -85,8 +91,8 @@ GUI.DisplayOrder = 999999
 GUI.Parent = LP:WaitForChild("PlayerGui")
 
 local Main = Instance.new("Frame")
-Main.Size = UDim2.fromOffset(350, 400) -- Altura aumentada para caber o slider
-Main.Position = UDim2.new(0.5, -175, 0.5, -200)
+Main.Size = UDim2.fromOffset(380, 420) -- Levemente alargado para caber os botões de keybind
+Main.Position = UDim2.new(0.5, -190, 0.5, -210)
 Main.BackgroundColor3 = Color3.fromRGB(22, 22, 26)
 Main.BorderSizePixel = 0
 Main.Active = true
@@ -240,37 +246,77 @@ ESPTab.MouseButton1Click:Connect(function() ShowPage(ESPPage) end)
 SettingsTab.MouseButton1Click:Connect(function() ShowPage(SettingsPage) end)
 
 --========================================================--
--- TOGGLES
+-- SISTEMA DE TOGGLE COM KEYBIND
 --========================================================--
 
-local function MakeToggle(parent, text, y, default, callback)
+local function MakeToggleWithKeybind(parent, text, y, defaultVal, defaultKey, callback, keyReferenceTable, keyName)
+	-- Botão Principal de Ativar/Desativar
 	local btn = Instance.new("TextButton")
-	btn.Size = UDim2.new(1, -8, 0, 40)
+	btn.Size = UDim2.new(1, -55, 0, 40)
 	btn.Position = UDim2.fromOffset(4, y)
 	btn.BackgroundColor3 = Color3.fromRGB(35, 35, 42)
 	btn.TextColor3 = Color3.new(1,1,1)
 	btn.TextSize = 13
 	btn.Font = Enum.Font.Gotham
 	btn.Parent = parent
-
 	Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
 
-	local value = default
+	-- Botão de Definir Tecla (Keybind)
+	local keyBtn = Instance.new("TextButton")
+	keyBtn.Size = UDim2.new(0, 45, 0, 40)
+	keyBtn.Position = UDim2.new(1, -45, 0, y)
+	keyBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+	keyBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
+	keyBtn.TextSize = 12
+	keyBtn.Font = Enum.Font.GothamBold
+	keyBtn.Text = "[" .. defaultKey.Name .. "]"
+	keyBtn.Parent = parent
+	Instance.new("UICorner", keyBtn).CornerRadius = UDim.new(0, 8)
+
+	local value = defaultVal
+	local binding = false
+
 	local function update()
 		btn.Text = text .. ": " .. (value and "ON" or "OFF")
 		btn.BackgroundColor3 = value and Color3.fromRGB(35, 95, 50) or Color3.fromRGB(35, 35, 42)
+		callback(value)
 	end
 	update()
 
 	btn.MouseButton1Click:Connect(function()
 		value = not value
 		update()
-		callback(value)
+	end)
+
+	keyBtn.MouseButton1Click:Connect(function()
+		binding = true
+		keyBtn.Text = "[...]"
+		keyBtn.TextColor3 = Color3.fromRGB(255, 200, 50)
+	end)
+
+	UserInputService.InputBegan:Connect(function(input, gp)
+		if binding then
+			if input.UserInputType == Enum.UserInputType.Keyboard then
+				Settings[keyName] = input.KeyCode
+				keyBtn.Text = "[" .. input.KeyCode.Name .. "]"
+				keyBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
+				binding = false
+			end
+		elseif not gp and input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode == Settings[keyName] then
+			value = not value
+			update()
+		end
 	end)
 end
 
-MakeToggle(CombatPage, "Aim Assist", 4, false, function(v) Settings.AimAssist = v end)
-MakeToggle(CombatPage, "Aimbot", 48, false, function(v) Settings.Aimbot = v end)
+-- Criando os Toggles com Keybinds nas abas corretas
+MakeToggleWithKeybind(CombatPage, "Aim Assist", 4, false, Enum.KeyCode.E, function(v) 
+	Settings.AimAssist = v 
+end, Settings, "AimAssistKey")
+
+MakeToggleWithKeybind(CombatPage, "Aimbot", 48, false, Enum.KeyCode.Q, function(v) 
+	Settings.Aimbot = v 
+end, Settings, "AimbotKey")
 
 -- FOV Button
 local FOVBtn = Instance.new("TextButton")
@@ -314,7 +360,6 @@ AimDistBg.Parent = CombatPage
 Instance.new("UICorner", AimDistBg).CornerRadius = UDim.new(0, 8)
 
 local AimDistFill = Instance.new("Frame")
--- Valor inicial correspondente a 100m numa faixa de 10 a 200 (100-10)/(200-10) ≈ 0.473
 AimDistFill.Size = UDim2.new((100 - 10) / 190, 0, 1, 0)
 AimDistFill.BackgroundColor3 = Color3.fromRGB(0, 170, 80)
 AimDistFill.BorderSizePixel = 0
@@ -336,7 +381,6 @@ local function UpdateAimDistSlider(inputPos)
 	AimDistFill.Size = UDim2.new(relative, 0, 1, 0)
 	AimDistBtn.Position = UDim2.new(relative, -10, 0.5, -10)
 
-	-- Mapeia de 10 até 200 metros
 	Settings.AimbotDistance = math.floor(10 + relative * 190)
 	AimDistLabel.Text = "Aimbot Max Dist: " .. Settings.AimbotDistance .. "m"
 end
@@ -370,7 +414,7 @@ end)
 -- ESP PAGE
 --========================================================--
 
-MakeToggle(ESPPage, "ESP", 4, true, function(v)
+MakeToggleWithKeybind(ESPPage, "ESP", 4, true, Enum.KeyCode.X, function(v)
 	Settings.ESP = v
 	for _, plr in ipairs(Players:GetPlayers()) do
 		if plr.Character then
@@ -386,14 +430,34 @@ MakeToggle(ESPPage, "ESP", 4, true, function(v)
 			end
 		end
 	end
-end)
+end, Settings, "ESPKey")
 
-MakeToggle(ESPPage, "Show Teammates", 48, false, function(v)
-	Settings.ShowTeammates = v
+-- Toggle comum para Show Teammates
+local TeamToggleBtn = Instance.new("TextButton")
+TeamToggleBtn.Size = UDim2.new(1, -8, 0, 40)
+TeamToggleBtn.Position = UDim2.fromOffset(4, 48)
+TeamToggleBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 42)
+TeamToggleBtn.TextColor3 = Color3.new(1,1,1)
+TeamToggleBtn.TextSize = 13
+TeamToggleBtn.Font = Enum.Font.Gotham
+TeamToggleBtn.Parent = ESPPage
+Instance.new("UICorner", TeamToggleBtn).CornerRadius = UDim.new(0, 8)
+
+local showTeamVal = false
+local function updateTeamBtn()
+	TeamToggleBtn.Text = "Show Teammates: " .. (showTeamVal and "ON" or "OFF")
+	TeamToggleBtn.BackgroundColor3 = showTeamVal and Color3.fromRGB(35, 95, 50) or Color3.fromRGB(35, 35, 42)
+end
+updateTeamBtn()
+
+TeamToggleBtn.MouseButton1Click:Connect(function()
+	showTeamVal = not showTeamVal
+	Settings.ShowTeammates = showTeamVal
+	updateTeamBtn()
 	for _, plr in ipairs(Players:GetPlayers()) do
 		if plr.Character and IsTeammate(plr) then
 			local h = plr.Character:FindFirstChild("CombatESP")
-			if h then h.Enabled = Settings.ESP and v end
+			if h then h.Enabled = Settings.ESP and showTeamVal end
 		end
 	end
 end)
@@ -420,7 +484,7 @@ local Info = Instance.new("TextLabel")
 Info.Size = UDim2.new(1, -8, 1, -10)
 Info.Position = UDim2.fromOffset(4, 6)
 Info.BackgroundTransparency = 1
-Info.Text = "COMBAT LIBRARY\n\n• Aim Assist / Aimbot com distância ajustável.\n• ESP persistente configurado.\n\nPressione 'J' para ocultar/exibir o painel."
+Info.Text = "COMBAT LIBRARY\n\n• Suporte a Keybinds por botão ao lado.\n• Pressione a tecla na aba para remapear.\n\nPressione 'J' para ocultar/exibir o painel."
 Info.TextColor3 = Color3.new(1,1,1)
 Info.TextSize = 13
 Info.Font = Enum.Font.Gotham
@@ -516,7 +580,6 @@ local function GetClosest()
 
 				if hum and part and root and hum.Health > 0 then
 					local dist = (Camera.CFrame.Position - root.Position).Magnitude
-					-- Respeita o limite do slider (Settings.AimbotDistance)
 					if dist <= Settings.AimbotDistance then
 						local pos, onScreen = Camera:WorldToViewportPoint(part.Position)
 						if onScreen and pos.Z > 0 and IsVisible(part) then
@@ -564,7 +627,7 @@ RunService.RenderStepped:Connect(function()
 end)
 
 --========================================================--
--- TECLA DE ATALHO (J) - ABRE E MINIMIZA CORRETAMENTE
+-- TECLA DE ATALHO (J) - ABRE E MINIMIZA O PAINEL
 --========================================================--
 
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
@@ -601,4 +664,4 @@ UserInputService.InputChanged:Connect(function(input)
 	end
 end)
 
-print("[Combat Library] Slider de distância do Aimbot adicionado com sucesso!")
+print("[Combat Library] Sistema de Keybinds adicionado com sucesso!")
