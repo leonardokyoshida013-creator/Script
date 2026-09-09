@@ -1,8 +1,6 @@
 --[[
-    Combat Library
+    Combat Library - Versão Otimizada
     Interface de combate para Roblox
-
-    Arquivo principal do projeto.
 ]]
 
 local Players = game:GetService("Players")
@@ -23,7 +21,6 @@ local Settings = {
 	ESP = true,
 	ShowTeammates = false,
 	AutoShoot = false,
-	FireRate = 0.12,          -- tempo entre tiros (menor = mais rápido)
 	FOV = 160,
 	MaxDistance = 600,
 	Smoothness = 0.25,
@@ -33,6 +30,7 @@ local Settings = {
 
 local CurrentTarget = nil
 local LastShot = 0
+local DetectedFireRate = 0.15 -- Valor padrão caso a arma não informe
 
 --========================================================--
 -- DETECÇÃO DE TIME
@@ -74,12 +72,35 @@ local function IsVisible(targetPart)
 	raycastParams.FilterDescendantsInstances = excludeList
 
 	local result = workspace:Raycast(origin, direction, raycastParams)
+	return result == nil
+end
 
-	if result == nil then
-		return true
+--========================================================--
+-- DETECÇÃO INTELIGENTE DO FIRERATE DA ARMA
+--========================================================--
+
+local function UpdateWeaponFireRate()
+	local character = LP.Character
+	if not character then return end
+
+	local tool = character:FindFirstChildOfClass("Tool")
+	if tool then
+		-- Tenta ler propriedades comuns de cadência de tiro em scripts de armas do Roblox
+		local cooldownVal = tool:FindFirstChild("Cooldown") or tool:FindFirstChild("FireRate") or tool:FindFirstChild("Delay")
+		if cooldownVal and (cooldownVal:IsA("NumberValue") or cooldownVal:IsA("IntValue")) then
+			DetectedFireRate = math.clamp(cooldownVal.Value, 0.05, 2.0)
+			return
+		end
+		
+		-- Verifica atributos da ferramenta se houver
+		if tool:GetAttribute("FireRate") then
+			DetectedFireRate = math.clamp(tool:GetAttribute("FireRate"), 0.05, 2.0)
+			return
+		end
 	end
-
-	return false
+	
+	-- Padrão seguro caso não encontre atributos customizados
+	DetectedFireRate = 0.15
 end
 
 --========================================================--
@@ -89,6 +110,8 @@ end
 local function Shoot()
 	local character = LP.Character
 	if not character then return end
+
+	UpdateWeaponFireRate()
 
 	local tool = character:FindFirstChildOfClass("Tool")
 	if tool then
@@ -123,8 +146,8 @@ GUI.DisplayOrder = 999999
 GUI.Parent = LP:WaitForChild("PlayerGui")
 
 local Main = Instance.new("Frame")
-Main.Size = UDim2.fromOffset(350, 420)
-Main.Position = UDim2.new(0.5, -175, 0.5, -210)
+Main.Size = UDim2.fromOffset(350, 380) -- Altura ajustada sem o slider
+Main.Position = UDim2.new(0.5, -175, 0.5, -190)
 Main.BackgroundColor3 = Color3.fromRGB(22, 22, 26)
 Main.BorderSizePixel = 0
 Main.Active = true
@@ -156,7 +179,7 @@ Title.Font = Enum.Font.GothamBold
 Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.Parent = TitleBar
 
--- Botão Minimizar
+-- Botão Minimizar (Apenas oculta o painel principal, sem criar bolinha "CL")
 local MinimizeBtn = Instance.new("TextButton")
 MinimizeBtn.Size = UDim2.fromOffset(34, 34)
 MinimizeBtn.Position = UDim2.new(1, -78, 0, 6)
@@ -167,11 +190,9 @@ MinimizeBtn.TextSize = 24
 MinimizeBtn.Font = Enum.Font.GothamBold
 MinimizeBtn.Parent = TitleBar
 
-local MinCorner = Instance.new("UICorner")
-MinCorner.CornerRadius = UDim.new(0, 8)
-MinCorner.Parent = MinimizeBtn
+Instance.new("UICorner", MinimizeBtn).CornerRadius = UDim.new(0, 8)
 
--- Botão Fechar
+-- Botão Fechar (Destrói a interface por completo de vez)
 local CloseBtn = Instance.new("TextButton")
 CloseBtn.Size = UDim2.fromOffset(34, 34)
 CloseBtn.Position = UDim2.new(1, -38, 0, 6)
@@ -182,35 +203,12 @@ CloseBtn.TextSize = 22
 CloseBtn.Font = Enum.Font.GothamBold
 CloseBtn.Parent = TitleBar
 
-local CloseCorner = Instance.new("UICorner")
-CloseCorner.CornerRadius = UDim.new(0, 8)
-CloseCorner.Parent = CloseBtn
-
--- Botão minimizado (ícone flutuante)
-local MiniBtn = Instance.new("TextButton")
-MiniBtn.Size = UDim2.fromOffset(58, 58)
-MiniBtn.Position = UDim2.new(0, 18, 0.5, -29)
-MiniBtn.BackgroundColor3 = Color3.fromRGB(28, 28, 34)
-MiniBtn.Text = "CL"
-MiniBtn.TextColor3 = Color3.new(1,1,1)
-MiniBtn.TextSize = 17
-MiniBtn.Font = Enum.Font.GothamBold
-MiniBtn.Visible = false
-MiniBtn.Parent = GUI
-
-local MiniCorner = Instance.new("UICorner")
-MiniCorner.CornerRadius = UDim.new(1, 0)
-MiniCorner.Parent = MiniBtn
-
-local MiniStroke = Instance.new("UIStroke")
-MiniStroke.Color = Color3.fromRGB(90, 90, 110)
-MiniStroke.Thickness = 2
-MiniStroke.Parent = MiniBtn
+Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 8)
 
 local ShootBtn
 
 --========================================================--
--- BOTÃO DE ATIRAR MANUAL
+-- BOTÃO DE ATIRAR MANUAL NA TELA
 --========================================================--
 
 ShootBtn = Instance.new("TextButton")
@@ -224,10 +222,7 @@ ShootBtn.TextSize = 16
 ShootBtn.Font = Enum.Font.GothamBold
 ShootBtn.Parent = GUI
 
-local ShootCorner = Instance.new("UICorner")
-ShootCorner.CornerRadius = UDim.new(1, 0)
-ShootCorner.Parent = ShootBtn
-
+Instance.new("UICorner", ShootBtn).CornerRadius = UDim.new(1, 0)
 local ShootStroke = Instance.new("UIStroke")
 ShootStroke.Color = Color3.fromRGB(255, 80, 80)
 ShootStroke.Thickness = 3
@@ -250,25 +245,19 @@ ShootBtn.MouseButton1Click:Connect(function()
 end)
 
 --========================================================--
--- CONTROLE DE VISIBILIDADE E MINIMIZAR (CORRIGIDO)
+-- CONTROLE DE VISIBILIDADE (TECLA J / BOTÕES)
 --========================================================--
 
-local function SetUIState(state)
-	Main.Visible = state
-	ShootBtn.Visible = state
-	MiniBtn.Visible = not state
+local function ToggleUI()
+	local currentVisibility = Main.Visible
+	Main.Visible = not currentVisibility
+	ShootBtn.Visible = not currentVisibility
 end
 
-MinimizeBtn.MouseButton1Click:Connect(function()
-	SetUIState(false)
-end)
-
-MiniBtn.MouseButton1Click:Connect(function()
-	SetUIState(true)
-end)
+MinimizeBtn.MouseButton1Click:Connect(ToggleUI)
 
 CloseBtn.MouseButton1Click:Connect(function()
-	SetUIState(false)
+	GUI:Destroy()
 end)
 
 --========================================================--
@@ -298,9 +287,7 @@ local function CreateTab(name, y)
 	btn.Font = Enum.Font.Gotham
 	btn.Parent = TabBar
 
-	local c = Instance.new("UICorner")
-	c.CornerRadius = UDim.new(0, 8)
-	c.Parent = btn
+	Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
 	return btn
 end
 
@@ -337,7 +324,7 @@ ESPTab.MouseButton1Click:Connect(function() ShowPage(ESPPage) end)
 SettingsTab.MouseButton1Click:Connect(function() ShowPage(SettingsPage) end)
 
 --========================================================--
--- TOGGLE
+-- TOGGLES
 --========================================================--
 
 local function MakeToggle(parent, text, y, default, callback)
@@ -350,9 +337,7 @@ local function MakeToggle(parent, text, y, default, callback)
 	btn.Font = Enum.Font.Gotham
 	btn.Parent = parent
 
-	local c = Instance.new("UICorner")
-	c.CornerRadius = UDim.new(0, 8)
-	c.Parent = btn
+	Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
 
 	local value = default
 	local function update()
@@ -372,7 +357,7 @@ MakeToggle(CombatPage, "Aim Assist", 4, false, function(v) Settings.AimAssist = 
 MakeToggle(CombatPage, "Aimbot", 48, false, function(v) Settings.Aimbot = v end)
 MakeToggle(CombatPage, "Auto Shoot", 92, false, function(v) Settings.AutoShoot = v end)
 
--- FOV
+-- FOV Button
 local FOVBtn = Instance.new("TextButton")
 FOVBtn.Size = UDim2.new(1, -8, 0, 36)
 FOVBtn.Position = UDim2.fromOffset(4, 140)
@@ -388,80 +373,6 @@ FOVBtn.MouseButton1Click:Connect(function()
 	Settings.FOV = Settings.FOV + 20
 	if Settings.FOV > 300 then Settings.FOV = 80 end
 	FOVBtn.Text = "FOV: " .. Settings.FOV
-end)
-
---========================================================--
--- SLIDER DE FIRE RATE
---========================================================--
-
-local SliderLabel = Instance.new("TextLabel")
-SliderLabel.Size = UDim2.new(1, -8, 0, 22)
-SliderLabel.Position = UDim2.fromOffset(4, 185)
-SliderLabel.BackgroundTransparency = 1
-SliderLabel.Text = "Fire Rate: 0.12s"
-SliderLabel.TextColor3 = Color3.new(1,1,1)
-SliderLabel.TextSize = 13
-SliderLabel.Font = Enum.Font.Gotham
-SliderLabel.TextXAlignment = Enum.TextXAlignment.Left
-SliderLabel.Parent = CombatPage
-
-local SliderBg = Instance.new("Frame")
-SliderBg.Size = UDim2.new(1, -8, 0, 18)
-SliderBg.Position = UDim2.fromOffset(4, 210)
-SliderBg.BackgroundColor3 = Color3.fromRGB(40, 40, 48)
-SliderBg.BorderSizePixel = 0
-SliderBg.Parent = CombatPage
-Instance.new("UICorner", SliderBg).CornerRadius = UDim.new(0, 9)
-
-local SliderFill = Instance.new("Frame")
-SliderFill.Size = UDim2.new(0.35, 0, 1, 0)
-SliderFill.BackgroundColor3 = Color3.fromRGB(0, 170, 80)
-SliderFill.BorderSizePixel = 0
-SliderFill.Parent = SliderBg
-Instance.new("UICorner", SliderFill).CornerRadius = UDim.new(0, 9)
-
-local SliderBtn = Instance.new("TextButton")
-SliderBtn.Size = UDim2.new(0, 22, 0, 22)
-SliderBtn.Position = UDim2.new(0.35, -11, 0.5, -11)
-SliderBtn.BackgroundColor3 = Color3.new(1,1,1)
-SliderBtn.Text = ""
-SliderBtn.Parent = SliderBg
-Instance.new("UICorner", SliderBtn).CornerRadius = UDim.new(1, 0)
-
-local sliding = false
-
-local function UpdateSlider(inputPos)
-	local relative = math.clamp((inputPos.X - SliderBg.AbsolutePosition.X) / SliderBg.AbsoluteSize.X, 0, 1)
-	SliderFill.Size = UDim2.new(relative, 0, 1, 0)
-	SliderBtn.Position = UDim2.new(relative, -11, 0.5, -11)
-
-	Settings.FireRate = 0.05 + (1 - relative) * 0.35
-	SliderLabel.Text = "Fire Rate: " .. string.format("%.2f", Settings.FireRate) .. "s"
-end
-
-SliderBtn.InputBegan:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-		sliding = true
-	end
-end)
-
-SliderBg.InputBegan:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-		sliding = true
-		UpdateSlider(input.Position)
-	end
-end)
-
-UserInputService.InputChanged:Connect(function(input)
-	if sliding and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-		UpdateSlider(input.Position)
-	end
-end)
-
-UserInputService.InputEnded:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-		sliding = false
-	end
 end)
 
 -- ESP Page
@@ -510,12 +421,12 @@ DistBtn.MouseButton1Click:Connect(function()
 	DistBtn.Text = "Distance: " .. Settings.MaxDistance
 end)
 
--- Info
+-- Info Page
 local Info = Instance.new("TextLabel")
 Info.Size = UDim2.new(1, -8, 1, -10)
 Info.Position = UDim2.fromOffset(4, 6)
 Info.BackgroundTransparency = 1
-Info.Text = "TIRO AUTOMÁTICO\n\n• Ative Auto Shoot\n• Ajuste a barra de Fire Rate\n• Dispara automático dentro do FOV\n• Exige visão limpa (sem paredes)\n• Ignora aliados e a si mesmo\n\nPressione 'J' para ocultar/exibir o painel."
+Info.Text = "TIRO AUTOMÁTICO INTELIGENTE\n\n• Detecta o tempo de espera da arma automaticamente.\n• Ative Auto Shoot dentro do FOV.\n• Exige visão limpa (sem paredes).\n\nPressione 'J' para ocultar/exibir o painel."
 Info.TextColor3 = Color3.new(1,1,1)
 Info.TextSize = 13
 Info.Font = Enum.Font.Gotham
@@ -524,14 +435,14 @@ Info.TextYAlignment = Enum.TextYAlignment.Top
 Info.Parent = SettingsPage
 
 --========================================================--
--- ESP
+-- ESP ROBUSTO (PERSISTENTE APÓS ROUND/RESPAWN)
 --========================================================--
 
 local function SetupESP(plr)
 	if plr == LP then return end
 
 	local function applyHighlight(char)
-		task.wait(0.5)
+		task.wait(0.4)
 		if not char or not char.Parent then return end
 
 		local old = char:FindFirstChild("CombatESP")
@@ -575,7 +486,7 @@ for _, p in ipairs(Players:GetPlayers()) do SetupESP(p) end
 Players.PlayerAdded:Connect(SetupESP)
 
 --========================================================--
--- FOV
+-- FOV CIRCLE
 --========================================================--
 
 local FOV = Instance.new("Frame")
@@ -594,7 +505,7 @@ FOVStroke.Color = Color3.new(1,1,1)
 FOVStroke.Parent = FOV
 
 --========================================================--
--- GET CLOSEST
+-- GET CLOSEST TARGET
 --========================================================--
 
 local function GetClosest()
@@ -656,9 +567,10 @@ RunService.RenderStepped:Connect(function()
 		Camera.CFrame = Camera.CFrame:Lerp(lookAt, smoothness)
 	end
 
+	-- Auto Shoot com base no tempo detectado da arma
 	if Settings.AutoShoot and target and IsVisible(target) then
 		local now = tick()
-		if now - LastShot >= Settings.FireRate then
+		if now - LastShot >= DetectedFireRate then
 			LastShot = now
 			Shoot()
 		end
@@ -672,14 +584,13 @@ end)
 --========================================================--
 
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
-	if input.KeyCode == Enum.KeyCode.J then
-		local isVisible = Main.Visible
-		SetUIState(not isVisible)
+	if not gameProcessed and input.KeyCode == Enum.KeyCode.J then
+		ToggleUI()
 	end
 end)
 
 --========================================================--
--- ARRASTAR
+-- DRAG SYSTEM (MOVER JANELA)
 --========================================================--
 
 local dragging = false
@@ -706,28 +617,4 @@ UserInputService.InputChanged:Connect(function(input)
 	end
 end)
 
-local miniDrag = false
-local miniStart, miniPos
-
-MiniBtn.InputBegan:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
-		miniDrag = true
-		miniStart = input.Position
-		miniPos = MiniBtn.Position
-	end
-end)
-
-MiniBtn.InputEnded:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
-		miniDrag = false
-	end
-end)
-
-UserInputService.InputChanged:Connect(function(input)
-	if miniDrag and (input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseMovement) then
-		local delta = input.Position - miniStart
-		MiniBtn.Position = UDim2.new(miniPos.X.Scale, miniPos.X.Offset + delta.X, miniPos.Y.Scale, miniPos.Y.Offset + delta.Y)
-	end
-end)
-
-print("[Combat Library] Erro de duplicação corrigido com sucesso!")
+print("[Combat Library] Sistema atualizado com sucesso!")
