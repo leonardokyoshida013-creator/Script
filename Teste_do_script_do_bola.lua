@@ -66,7 +66,6 @@ local function IsVisible(targetPart)
 	local raycastParams = RaycastParams.new()
 	raycastParams.FilterType = Enum.RaycastFilterType.Exclude
 	
-	-- Ignorar o próprio personagem local e o alvo para evitar falsos positivos
 	local excludeList = {LP.Character}
 	if targetPart.Parent then
 		table.insert(excludeList, targetPart.Parent)
@@ -76,7 +75,6 @@ local function IsVisible(targetPart)
 
 	local result = workspace:Raycast(origin, direction, raycastParams)
 
-	-- Se não atingir nada no meio do caminho, está visível (sem paredes)
 	if result == nil then
 		return true
 	end
@@ -95,14 +93,21 @@ local function Shoot()
 	local tool = character:FindFirstChildOfClass("Tool")
 	if tool then
 		tool:Activate()
-	else
-		-- Alternativa caso não tenha Tool
-		pcall(function()
-			VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 1)
-			task.wait(0.03)
-			VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 1)
-		end)
+		for _, child in ipairs(tool:GetChildren()) do
+			if child:IsA("RemoteEvent") then
+				pcall(function()
+					child:FireServer()
+				end)
+			end
+		end
 	end
+
+	pcall(function()
+		local vim = VirtualInputManager
+		vim:SendMouseButtonEvent(0, 0, 0, true, game, 1)
+		task.wait(0.01)
+		vim:SendMouseButtonEvent(0, 0, 0, false, game, 1)
+	end)
 end
 
 --========================================================--
@@ -114,7 +119,7 @@ GUI.Name = "CombatLibrary"
 GUI.ResetOnSpawn = false
 GUI.IgnoreGuiInset = true
 GUI.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-GUI.DisplayOrder = 999999 -- Garante que o painel fique sempre por cima de tudo
+GUI.DisplayOrder = 999999
 GUI.Parent = LP:WaitForChild("PlayerGui")
 
 local Main = Instance.new("Frame")
@@ -181,7 +186,7 @@ local CloseCorner = Instance.new("UICorner")
 CloseCorner.CornerRadius = UDim.new(0, 8)
 CloseCorner.Parent = CloseBtn
 
--- Botão minimizado
+-- Botão minimizado (ícone flutuante)
 local MiniBtn = Instance.new("TextButton")
 MiniBtn.Size = UDim2.fromOffset(58, 58)
 MiniBtn.Position = UDim2.new(0, 18, 0.5, -29)
@@ -202,23 +207,7 @@ MiniStroke.Color = Color3.fromRGB(90, 90, 110)
 MiniStroke.Thickness = 2
 MiniStroke.Parent = MiniBtn
 
-local isMinimized = false
 local ShootBtn
-
-local function ToggleMin()
-	isMinimized = not isMinimized
-	Main.Visible = not isMinimized
-	MiniBtn.Visible = isMinimized
-	ShootBtn.Visible = not isMinimized
-end
-MinimizeBtn.MouseButton1Click:Connect(ToggleMin)
-MiniBtn.MouseButton1Click:Connect(ToggleMin)
-CloseBtn.MouseButton1Click:Connect(function()
-	Main.Visible = false
-	MiniBtn.Visible = true
-	ShootBtn.Visible = false
-	isMinimized = true
-end)
 
 --========================================================--
 -- BOTÃO DE ATIRAR MANUAL
@@ -258,6 +247,28 @@ ShootBtn.MouseButton1Click:Connect(function()
 	if CurrentTarget and IsVisible(CurrentTarget) then
 		Shoot()
 	end
+end)
+
+--========================================================--
+-- CONTROLE DE VISIBILIDADE E MINIMIZAR (CORRIGIDO)
+--========================================================--
+
+local function SetUIState(state)
+	Main.Visible = state
+	ShootBtn.Visible = state
+	MiniBtn.Visible = not state
+end
+
+MinimizeBtn.MouseButton1Click:Connect(function()
+	SetUIState(false)
+end)
+
+MiniBtn.MouseButton1Click:Connect(function()
+	SetUIState(true)
+end)
+
+CloseBtn.MouseButton1Click:Connect(function()
+	SetUIState(false)
 end)
 
 --========================================================--
@@ -357,7 +368,6 @@ local function MakeToggle(parent, text, y, default, callback)
 	end)
 end
 
--- Combat Page
 MakeToggle(CombatPage, "Aim Assist", 4, false, function(v) Settings.AimAssist = v end)
 MakeToggle(CombatPage, "Aimbot", 48, false, function(v) Settings.Aimbot = v end)
 MakeToggle(CombatPage, "Auto Shoot", 92, false, function(v) Settings.AutoShoot = v end)
@@ -381,7 +391,7 @@ FOVBtn.MouseButton1Click:Connect(function()
 end)
 
 --========================================================--
--- SLIDER DE FIRE RATE (VELOCIDADE DO TIRO AUTOMÁTICO)
+-- SLIDER DE FIRE RATE
 --========================================================--
 
 local SliderLabel = Instance.new("TextLabel")
@@ -404,7 +414,7 @@ SliderBg.Parent = CombatPage
 Instance.new("UICorner", SliderBg).CornerRadius = UDim.new(0, 9)
 
 local SliderFill = Instance.new("Frame")
-SliderFill.Size = UDim2.new(0.35, 0, 1, 0) -- valor inicial
+SliderFill.Size = UDim2.new(0.35, 0, 1, 0)
 SliderFill.BackgroundColor3 = Color3.fromRGB(0, 170, 80)
 SliderFill.BorderSizePixel = 0
 SliderFill.Parent = SliderBg
@@ -418,7 +428,6 @@ SliderBtn.Text = ""
 SliderBtn.Parent = SliderBg
 Instance.new("UICorner", SliderBtn).CornerRadius = UDim.new(1, 0)
 
--- Lógica do Slider
 local sliding = false
 
 local function UpdateSlider(inputPos)
@@ -426,7 +435,6 @@ local function UpdateSlider(inputPos)
 	SliderFill.Size = UDim2.new(relative, 0, 1, 0)
 	SliderBtn.Position = UDim2.new(relative, -11, 0.5, -11)
 
-	-- Converte para FireRate (0.05 = muito rápido | 0.40 = lento)
 	Settings.FireRate = 0.05 + (1 - relative) * 0.35
 	SliderLabel.Text = "Fire Rate: " .. string.format("%.2f", Settings.FireRate) .. "s"
 end
@@ -507,7 +515,7 @@ local Info = Instance.new("TextLabel")
 Info.Size = UDim2.new(1, -8, 1, -10)
 Info.Position = UDim2.fromOffset(4, 6)
 Info.BackgroundTransparency = 1
-Info.Text = "TIRO AUTOMÁTICO\n\n• Ative Auto Shoot\n• Ajuste a barra de Fire Rate\n• Atira automático se inimigo entrar no FOV\n• Exige visão limpa (sem paredes)\n• Ignora aliados e a si mesmo\n\nPressione 'J' para ocultar/exibir o painel."
+Info.Text = "TIRO AUTOMÁTICO\n\n• Ative Auto Shoot\n• Ajuste a barra de Fire Rate\n• Dispara automático dentro do FOV\n• Exige visão limpa (sem paredes)\n• Ignora aliados e a si mesmo\n\nPressione 'J' para ocultar/exibir o painel."
 Info.TextColor3 = Color3.new(1,1,1)
 Info.TextSize = 13
 Info.Font = Enum.Font.Gotham
@@ -522,8 +530,10 @@ Info.Parent = SettingsPage
 local function SetupESP(plr)
 	if plr == LP then return end
 
-	local function onChar(char)
-		task.wait(0.6)
+	local function applyHighlight(char)
+		task.wait(0.5)
+		if not char or not char.Parent then return end
+
 		local old = char:FindFirstChild("CombatESP")
 		if old then old:Destroy() end
 
@@ -546,10 +556,18 @@ local function SetupESP(plr)
 		hl.Parent = char
 	end
 
-	if plr.Character then onChar(plr.Character) end
-	plr.CharacterAdded:Connect(onChar)
+	if plr.Character then
+		applyHighlight(plr.Character)
+	end
+
+	plr.CharacterAdded:Connect(function(newChar)
+		applyHighlight(newChar)
+	end)
+
 	plr:GetPropertyChangedSignal("Team"):Connect(function()
-		if plr.Character then onChar(plr.Character) end
+		if plr.Character then
+			applyHighlight(plr.Character)
+		end
 	end)
 end
 
@@ -617,13 +635,11 @@ end
 RunService.RenderStepped:Connect(function()
 	local size = Settings.FOV * 2
 	FOV.Size = UDim2.fromOffset(size, size)
-	-- Mostra o círculo se Aimbot, AimAssist ou AutoShoot estiverem ativados
 	FOV.Visible = (Settings.AimAssist or Settings.Aimbot or Settings.AutoShoot)
 
 	local target = GetClosest()
 	CurrentTarget = target
 
-	-- Lógica de Aimbot / AimAssist
 	if (Settings.Aimbot or Settings.AimAssist) and target then
 		local smoothness = Settings.Aimbot and Settings.AimbotSmoothness or Settings.Smoothness
 
@@ -640,7 +656,6 @@ RunService.RenderStepped:Connect(function()
 		Camera.CFrame = Camera.CFrame:Lerp(lookAt, smoothness)
 	end
 
-	-- Lógica de Auto Shoot Automático dentro do FOV (Independente do Aimbot)
 	if Settings.AutoShoot and target and IsVisible(target) then
 		local now = tick()
 		if now - LastShot >= Settings.FireRate then
@@ -653,17 +668,13 @@ RunService.RenderStepped:Connect(function()
 end)
 
 --========================================================--
--- TECLA DE ATALHO (J) PARA OCULTAR/EXIBIR A GUI
+-- TECLA DE ATALHO (J)
 --========================================================--
 
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	if input.KeyCode == Enum.KeyCode.J then
-		local visible = not Main.Visible
-		Main.Visible = visible
-		ShootBtn.Visible = visible and not isMinimized
-		if isMinimized then
-			MiniBtn.Visible = visible
-		end
+		local isVisible = Main.Visible
+		SetUIState(not isVisible)
 	end
 end)
 
@@ -695,7 +706,6 @@ UserInputService.InputChanged:Connect(function(input)
 	end
 end)
 
--- Arrastar MiniBtn
 local miniDrag = false
 local miniStart, miniPos
 
@@ -720,4 +730,4 @@ UserInputService.InputChanged:Connect(function(input)
 	end
 end)
 
-print("[Combat Library] Auto Shoot independente e automático no FOV carregado!")
+print("[Combat Library] Erro de duplicação corrigido com sucesso!")
